@@ -1,0 +1,172 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.preprocessing import LabelEncoder,MinMaxScaler
+
+df = pd.read_csv("stock.csv")
+
+print(df.shape)
+print(df.columns)
+
+df.info()
+
+df.sort_values('Date', inplace=True)
+
+print("Missing values before dropping:")
+print(df.isnull().sum())
+
+df.dropna(inplace=True)
+print(df.shape)
+
+print("\nMissing values after droping:")
+print(df.isnull().sum())
+
+conversion = ['Price','Volume', 'Open', 'High', 'Low']
+for column in conversion:
+    df[column] = df[column].replace('[\$,]', '', regex=True).astype(float)
+
+df.describe()
+
+highest_volume_day = df[df['Volume'] == df['Volume'].max()]
+print(highest_volume_day)
+
+best_company = df[df['Price'] == df['Price'].max()]['Company'].values[0]
+best = df[df['Price'] == df['Price'].max()]
+print("The best company is: ",best_company)
+print(f'{best}')
+
+Performance = ['Price', 'Volume', 'Open', 'High', 'Low']
+for name in Performance:
+    highest = df[df[name] == df[name].max()]['Company'].values[0]
+    lowest = df[df[name] == df[name].min()]['Company'].values[0]
+    print(f'\n{name}')
+    print(f'Highest {name}: {highest}, Lowest {name}: {lowest}')
+
+average_volume_company = df.groupby('Company')['Volume'].mean() 
+print(average_volume_company)
+
+a = MinMaxScaler()
+df_normalized = df.copy()
+df_normalized[conversion] = a.fit_transform(df[conversion])
+
+df_normalized.head()
+
+aapl = 'AAPL'
+df.loc[df['Company'] == aapl, 'Price Range'] = df.loc[df['Company'] == aapl, 'High'] - df.loc[df['Company'] == aapl, 'Low']
+df.loc[df['Company'] == aapl, 'Difference of Price'] = df.loc[df['Company'] == aapl, 'Price'] - df.loc[df['Company'] == aapl, 'Open']
+
+df_company = df[df['Company'] == aapl]
+df_company.tail()
+
+
+plt.figure(figsize=(10,8))
+
+
+plt.subplot(1,2,1)
+sns.heatmap(df.pivot(index='Date',columns='Company',values='High'), cmap='coolwarm')
+plt.title('High Prices')
+
+plt.subplot(1,2,2)
+sns.heatmap(df.pivot(index='Date',columns='Company',values='Open'), cmap='coolwarm')
+plt.title('Open Prices')
+plt.suptitle('Company Prices')
+plt.tight_layout()
+plt.show()
+
+df['Year'] = df['Date'].dt.year
+
+company_performance_year = df.groupby(['Company', 'Year'])['Volume'].mean().unstack()
+
+plt.figure(figsize=(10, 7))
+for company in company_performance_year.index:
+    plt.plot(company_performance_year.columns, company_performance_year.loc[company, :], marker='o', label=company)
+
+plt.title('Average Yearly Volume Stock Performance by Company')
+plt.xlabel('Year')
+plt.ylabel('Average Volume Stock')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+plt.figure(figsize=(6, 3))
+df.groupby('Company')['Price'].mean().plot(kind='bar')
+plt.title('Average Stock Price')
+plt.xlabel('Stock')
+plt.ylabel('Average Price')
+plt.show()
+
+plt.figure(figsize=(7, 5))
+plt.scatter(df['Volume'], df['Price'])
+plt.title('Volume vs Price')
+plt.xlabel('Volume of Company')
+plt.ylabel('Price of Company')
+plt.show()
+
+plt.figure(figsize=(7, 6))
+plt.hist(df['Open'],bins=20)
+plt.title('Opening Stock')
+plt.xlabel('Open Stock Price')
+plt.ylabel('')
+plt.show()
+
+plt.figure(figsize=(16, 5))
+plt.boxplot(df['Low'].dropna(), vert=False)
+plt.title('Prices of Company')
+plt.show()
+
+average = df.groupby('Company')['High'].max()
+plt.figure(figsize=(15, 7))
+plt.pie(average, labels=average.index,autopct='%1.2f%%')
+plt.title('Maximum Comapny High Prices')
+plt.legend()
+plt.show()
+
+plt.figure(figsize=(16,6))
+avg_wth_Time = df.groupby('Date')['Low'].min()
+
+
+plt.plot(avg_wth_Time.index, avg_wth_Time, linestyle='--', marker = '.', color='r')
+
+
+plt.title('Average Prices of Lowest Stock Price ')
+plt.xlabel('Date')
+plt.ylabel('Average Price')
+plt.show()
+
+open_stock = df.pivot(index='Date', columns='Company', values='Open')
+plt.stackplot(open_stock.index, open_stock.values.T, labels=open_stock.columns)
+plt.title('Opening Stock Price of Company Over Time')
+plt.xlabel('Date')
+plt.ylabel('Opening price')
+plt.legend()
+plt.show()
+
+
+change_to_numeric = LabelEncoder()
+df['Company'] =  change_to_numeric.fit_transform(df['Company'])
+feature = df[['Open', 'High', 'Low', 'Volume']] 
+target = df['Company']
+X_train, X_test, y_train, y_test = train_test_split(feature, target, test_size=0.2, random_state=42)
+classify = DecisionTreeClassifier(random_state=42)
+classify.fit(X_train, y_train)
+y_pred = classify.predict(X_test)
+
+ModelAccurate = accuracy_score(y_test, y_pred)
+Modelprecision = precision_score(y_test, y_pred,average='weighted')
+Modelrecall = recall_score(y_test, y_pred,average='weighted')
+
+print(f'Accuracy:{ModelAccurate}' )
+print(f'Precision:{Modelprecision} ')
+print(f'Recall:{Modelrecall}' )
+
+z = ['Accuracy', 'Precision', 'Recall']
+value = [ModelAccurate, Modelprecision, Modelrecall]
+
+plt.figure(figsize=(10, 5))
+plt.barh(z, value, color=['blue', 'green', 'red'])
+plt.ylabel('Values')
+plt.title('Model Performance Judgement ')
+plt.show()
